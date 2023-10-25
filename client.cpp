@@ -11,6 +11,27 @@ using namespace std;
 #define FALSE 0
 #define PORT "65001"
 
+void wait()
+{
+    int remaining_time = 60; // 60 seconds countdown
+    time_t start_time = time(nullptr);
+
+    while (remaining_time > 0)
+    {
+        cout << "\rTime remaining: " << remaining_time << " seconds" << flush;
+        sleep(1);
+
+        time_t current_time;
+        do
+        {
+            current_time = time(nullptr);
+        } while (current_time == start_time);
+
+        remaining_time--;
+    }
+    cout << "\rYou are done!\n";
+}
+
 void replace(char s[])
 {
     int i = 0;
@@ -114,15 +135,13 @@ int main(int argc, char *argv[])
                     replace(buffer);
                     send(sockfd, buffer, strlen(buffer), 0);
                     counter++;
+                    cout << "\nYour timer has started!";
+                    wait();
                     replace(buffer);
                     strcat(buffer, "Present\n");
                     send(sockfd, buffer, strlen(buffer), 0);
                     cout << "\nYour Attendance has been marked!" << endl;
                     break;
-                }
-                else
-                {
-                    cout << "Chat Disabled!!" << endl;
                 }
             }
         }

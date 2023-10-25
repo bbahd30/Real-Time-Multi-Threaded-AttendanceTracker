@@ -7,6 +7,55 @@
 #include <fstream>
 using namespace std;
 
+#define yes 1
+#define no 0
+
+void split_string(const char *str, char *classs, char *name, char *roll)
+{
+    char *token;
+    int i = 0;
+    char tempStr[BUFSIZ];
+    strcpy(tempStr, str);
+
+    token = strtok(tempStr, "_");
+    while (token != nullptr)
+    {
+        switch (i)
+        {
+        case 0:
+            strcpy(classs, token);
+            break;
+        case 1:
+            strcpy(name, token);
+            break;
+        case 2:
+            strcpy(roll, token);
+            break;
+        }
+        i++;
+        token = strtok(nullptr, "_");
+    }
+}
+
+void addStudentsToCSV(const char *classs, const char *name, const char *roll)
+{
+    ofstream file("students.csv", ios::app);
+    if (!file.is_open())
+    {
+        cerr << "Error opening file" << endl;
+        return;
+    }
+
+    file << name << "\t" << roll << "\t" << classs << "\t" << endl;
+}
+
+bool isPresent(const char *buffer)
+{
+    const char *presentText = "Present";
+    const char *found = strstr(buffer, presentText);
+    return found != nullptr;
+}
+
 int main()
 {
     const int clientname_size = 32;
@@ -20,7 +69,7 @@ int main()
     fd_set main_fd, read_fd;
     int serverfd, clientfd;
 
-    char classs[8], div[8], nam[20], roll[5], attendance[10];
+    char classs[8], roll[8];
 
     int details_counter = 0;
     char name[60];
@@ -68,6 +117,7 @@ int main()
     done = no;
 
     socklen_t address_len = sizeof(struct sockaddr);
+    bool present = false;
     while (!done)
     {
         read_fd = main_fd;
@@ -139,13 +189,12 @@ int main()
                             strcat(sendstr, "-> ");
                             strcat(sendstr, buffer);
 
-                            split_string(buffer, classs, div, nam, roll, attendance);
-
+                            split_string(buffer, classs, name, roll);
+                            if (isPresent(buffer))
+                                addStudentsToCSV(classs, name, roll);
                             strcpy(classs, "");
-                            strcpy(div, "");
-                            strcpy(nam, "");
+                            strcpy(name, "");
                             strcpy(roll, "");
-                            strcpy(attendance, "");
 
                             cout << sendstr << endl;
                         }
@@ -154,7 +203,6 @@ int main()
             }
         }
     }
-
 
     cout << "\nClosing server." << endl;
     close(serverfd);

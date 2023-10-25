@@ -136,7 +136,7 @@ int main()
                         else
                         {
                             strcpy(sendstr, connection[fd]);
-                            strcat(sendstr, "> ");
+                            strcat(sendstr, "-> ");
                             strcat(sendstr, buffer);
 
                             split_string(buffer, classs, div, nam, roll, attendance);

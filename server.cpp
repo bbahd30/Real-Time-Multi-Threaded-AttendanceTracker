@@ -5,6 +5,10 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <fstream>
+#include <thread>
+#include <vector>
+#include <mutex>
+
 using namespace std;
 
 #define yes 1
@@ -54,6 +58,59 @@ bool isPresent(const char *buffer)
     const char *presentText = "Present";
     const char *found = strstr(buffer, presentText);
     return found != nullptr;
+}
+
+void handleClient(int clientfd, char connection[], fd_set &main_fd, int &max_connect, int &done, char name[])
+{
+    char buffer[BUFSIZ], sendstr[BUFSIZ];
+    char classs[8], roll[8];
+    int result, fd, x;
+
+    while (true)
+    {
+        result = recv(clientfd, buffer, BUFSIZ, 0);
+        if (result < 1)
+        {
+            FD_CLR(clientfd, &main_fd);
+            close(clientfd);
+
+            strcpy(buffer, "\nAttendance Tracker ");
+            strcat(buffer, connection);
+            strcat(buffer, " disconnected\n");
+            for (x = 1; x <= max_connect; x++)
+            {
+                if (FD_ISSET(x, &main_fd))
+                {
+                    send(x, buffer, strlen(buffer), 0);
+                }
+            }
+            cout << buffer << endl;
+            break;
+        }
+        else
+        {
+            buffer[result] = '\0';
+            if (strcmp(buffer, "shutdown\n") == 0)
+            {
+                done = yes;
+            }
+            else
+            {
+                strcpy(sendstr, connection);
+                strcat(sendstr, "-> ");
+                strcat(sendstr, buffer);
+
+                split_string(buffer, classs, name, roll);
+                if (isPresent(buffer))
+                    addStudentsToCSV(classs, name, roll);
+                strcpy(classs, "");
+                strcpy(name, "");
+                strcpy(roll, "");
+
+                cout << sendstr << endl;
+            }
+        }
+    }
 }
 
 int main()
@@ -118,6 +175,9 @@ int main()
 
     socklen_t address_len = sizeof(struct sockaddr);
     bool present = false;
+
+    vector<thread> threads;
+
     while (!done)
     {
         read_fd = main_fd;
@@ -155,53 +215,16 @@ int main()
                     strcat(buffer, " has joined the server\n");
 
                     cout << buffer << endl;
-                }
-                else
-                {
-                    result = recv(fd, buffer, BUFSIZ, 0);
-                    if (result < 1)
-                    {
-                        FD_CLR(fd, &main_fd);
-                        close(fd);
 
-                        strcpy(buffer, "\nAttendance Tracker ");
-                        strcat(buffer, connection[fd]);
-                        strcat(buffer, " disconnected\n");
-                        for (x = serverfd + 1; x < max_connect; x++)
-                        {
-                            if (FD_ISSET(x, &main_fd))
-                            {
-                                send(x, buffer, strlen(buffer), 0);
-                            }
-                        }
-                        cout << buffer << endl;
-                    }
-                    else
-                    {
-                        buffer[result] = '\0';
-                        if (strcmp(buffer, "shutdown\n") == 0)
-                        {
-                            done = yes;
-                        }
-                        else
-                        {
-                            strcpy(sendstr, connection[fd]);
-                            strcat(sendstr, "-> ");
-                            strcat(sendstr, buffer);
-
-                            split_string(buffer, classs, name, roll);
-                            if (isPresent(buffer))
-                                addStudentsToCSV(classs, name, roll);
-                            strcpy(classs, "");
-                            strcpy(name, "");
-                            strcpy(roll, "");
-
-                            cout << sendstr << endl;
-                        }
-                    }
+                    threads.emplace_back(handleClient, clientfd, connection[clientfd], ref(main_fd), ref(max_connect), ref(done), name);
                 }
             }
         }
+    }
+
+    for (auto &thread : threads)
+    {
+        thread.join();
     }
 
     cout << "\nClosing server." << endl;

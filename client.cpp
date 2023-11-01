@@ -3,17 +3,19 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/socket.h>
-#include <sys/select.h>
-#include <ctime>
+#include <thread>
+#include <mutex>
 using namespace std;
 
 #define TRUE 1
 #define FALSE 0
 #define PORT "65001"
 
+mutex mtx;
+
 void wait()
 {
-    int remaining_time = 60; // 60 seconds countdown
+    int remaining_time = 10;
     time_t start_time = time(nullptr);
 
     while (remaining_time > 0)
@@ -29,7 +31,7 @@ void wait()
 
         remaining_time--;
     }
-    cout << "\rYou are done!\n";
+    cout << "\rYou are done!                                   \n";
 }
 
 void replace(char s[])
@@ -42,6 +44,26 @@ void replace(char s[])
             s[i] = '_';
         }
         i++;
+    }
+}
+
+void serverCommunication(int sockfd)
+{
+    char buffer[BUFSIZ];
+
+    while (true)
+    {
+        int result = recv(sockfd, buffer, BUFSIZ, 0);
+
+        if (result < 1)
+        {
+            lock_guard<mutex> lock(mtx);
+            cout << "Connection closed by the server" << endl;
+            break;
+        }
+
+        buffer[result] = '\0';
+        cout << buffer;
     }
 }
 
@@ -70,7 +92,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     cout << "\nClass Found!" << endl;
-    cout << "\nEnter your Enrollment Number" << endl;
+    cout << "\nEnter your class, name, and enrollment number separated by underscore." << endl;
 
     int sockfd = socket(server->ai_family, server->ai_socktype, server->ai_protocol);
     if (sockfd == -1)
@@ -87,67 +109,44 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    thread communicationThread(serverCommunication, sockfd);
+
     int done = FALSE;
-    fd_set read_fd;
     while (!done)
     {
-        FD_ZERO(&read_fd);
-        FD_SET(sockfd, &read_fd);
-        FD_SET(0, &read_fd);
-
-        result = select(sockfd + 1, &read_fd, nullptr, nullptr, nullptr);
-        if (result == -1)
-        {
-            perror("failed");
-            exit(1);
-        }
-
         char buffer[BUFSIZ];
-        if (FD_ISSET(sockfd, &read_fd))
+        if (fgets(buffer, BUFSIZ, stdin) == nullptr)
         {
-            sleep(1);
-            result = recv(sockfd, buffer, BUFSIZ, 0);
-
-            if (result < 1)
-            {
-                cout << "Connection closed by peer" << endl;
-                break;
-            }
-
-            buffer[result] = '\0';
-            cout << buffer;
+            putchar('\n');
         }
-
-        if (FD_ISSET(0, &read_fd))
+        else if (strcmp(buffer, "close\n") == 0)
         {
-            if (fgets(buffer, BUFSIZ, stdin) == nullptr)
+            done = TRUE;
+        }
+        else
+        {
+            if (counter == 0)
             {
-                putchar('\n');
-            }
-            else if (strcmp(buffer, "close\n") == 0)
-            {
-                done = TRUE;
-            }
-            else
-            {
-                if (counter == 0)
-                {
-                    replace(buffer);
-                    send(sockfd, buffer, strlen(buffer), 0);
-                    counter++;
-                    cout << "\nYour timer has started!";
-                    wait();
-                    replace(buffer);
-                    strcat(buffer, "Present\n");
-                    send(sockfd, buffer, strlen(buffer), 0);
-                    cout << "\nYour Attendance has been marked!" << endl;
-                    break;
-                }
+                replace(buffer);
+                send(sockfd, buffer, strlen(buffer), 0);
+                counter++;
+                cout << "\nYour timer has started!";
+                wait();
+                replace(buffer);
+                strcat(buffer, "Present\n");
+                send(sockfd, buffer, strlen(buffer), 0);
+                cout << "\nYour Attendance has been marked!" << endl;
+                break;
             }
         }
     }
 
-    cout << "\nDisconnected" << endl;
+    {
+        lock_guard<mutex> lock(mtx);
+        cout << "\nDisconnected" << endl;
+    }
+
+    communicationThread.join();
     close(sockfd);
 
     return 0;

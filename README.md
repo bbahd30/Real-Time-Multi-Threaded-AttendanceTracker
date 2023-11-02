@@ -10,11 +10,11 @@ The Real-Time, Multi-Threaded Attendance Tracker is a cutting-edge software solu
 # Usage
 - Run Server.cpp
 ```console
-$ g++ server.cpp -0 server -pthread
+$ g++ server.cpp -o server -pthread
 $ ./server
 ```
 - Run Client
 ```console
-$ g++ client.cpp -0 client -pthread
+$ g++ client.cpp -o client -pthread
 $ ./client 127.0.0.1
 ```

@@ -8,13 +8,28 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <map>
 
 using namespace std;
 
 #define yes 1
 #define no 0
 
-void split_string(const char *str, char *classs, char *name, char *roll)
+string randcode;
+
+void gencode()
+{
+    const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const int codeLength = 8;
+    string code;
+    for (int i = 0; i < codeLength; i++)
+    {
+        code += charset[rand() % (sizeof(charset) - 1)];
+    }
+    randcode = code;
+}
+
+void split_string(const char *str, char *classs, char *name, char *roll, char *code)
 {
     char *token;
     int i = 0;
@@ -35,6 +50,9 @@ void split_string(const char *str, char *classs, char *name, char *roll)
         case 2:
             strcpy(roll, token);
             break;
+        case 3:
+            strcpy(code, token);
+            break;
         }
         i++;
         token = strtok(nullptr, "_");
@@ -53,17 +71,15 @@ void addStudentsToCSV(const char *classs, const char *name, const char *roll)
     file << name << "\t" << roll << "\t" << classs << "\t" << endl;
 }
 
-bool isPresent(const char *buffer)
+bool isPresent(string bufferCode)
 {
-    const char *presentText = "Present";
-    const char *found = strstr(buffer, presentText);
-    return found != nullptr;
+    return randcode == bufferCode;
 }
 
 void handleClient(int clientfd, char connection[], fd_set &main_fd, int &max_connect, int &done, char name[])
 {
     char buffer[BUFSIZ], sendstr[BUFSIZ];
-    char classs[8], roll[8];
+    char classs[8], roll[8], code[8];
     int result, fd, x;
 
     while (true)
@@ -98,16 +114,27 @@ void handleClient(int clientfd, char connection[], fd_set &main_fd, int &max_con
             {
                 strcpy(sendstr, connection);
                 strcat(sendstr, "-> ");
+                string n(name);
+                string c(classs);
+                string r(roll);
+                string str = c + "" + n + "" + r;
+                const char *b = str.c_str();
                 strcat(sendstr, buffer);
 
-                split_string(buffer, classs, name, roll);
-                if (isPresent(buffer))
+                split_string(buffer, classs, name, roll, code);
+                cout << "The code is " << code << "\n";
+                if (isPresent(code)){
                     addStudentsToCSV(classs, name, roll);
-                strcpy(classs, "");
-                strcpy(name, "");
-                strcpy(roll, "");
+                    strcpy(classs, "");
+                    strcpy(name, "");
+                    strcpy(roll, "");
 
-                cout << sendstr << endl;
+                    cout << sendstr << endl;
+                }
+                else{
+                    cout<<"Invalid code, attendance not marked"<<endl;
+                }
+                // codemutex.unlock();
             }
         }
     }
@@ -160,7 +187,10 @@ int main()
         exit(1);
     }
 
+    gencode();
     cout << "Attendance Tracker is tracking students now..." << endl;
+    cout << "Attendance code: " << randcode << endl;
+
     result = listen(serverfd, backlog);
     if (result == -1)
     {

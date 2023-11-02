@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <thread>
 #include <mutex>
+
 using namespace std;
 
 #define TRUE 1
@@ -92,7 +93,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     cout << "\nClass Found!" << endl;
-    cout << "\nEnter your class, name, and enrollment number separated by underscore." << endl;
+    cout << "\nEnter your class, name, enrollment number and code separated by underscore." << endl;
 
     int sockfd = socket(server->ai_family, server->ai_socktype, server->ai_protocol);
     if (sockfd == -1)
